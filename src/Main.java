@@ -1,27 +1,33 @@
 import java.util.Random;
 
-public abstract class Main {
-    private static int[] array;
+public class Main {
+    private int[] array;
 
-    private static int minElement;
-    private static int minIndex;
-    private static int completedThreads;
+    private int minElement;
+    private int minIndex;
+    private int completedThreads;
 
-    private static final Random random = new Random();
-    private static final Object lockObject = new Object();
-    private static final Object completionLock = new Object();
+    private final Random random = new Random();
+    private final Object lockObject = new Object();
+    private final Object completionLock = new Object();
 
     public static void main(String[] args) {
-        int[] threadCounts = {Runtime.getRuntime().availableProcessors()};
+        Main main = new Main();
+        int[] threadCounts = {4};
 
         for (int threadCount : threadCounts) {
             System.out.println("\nRunning with " + threadCount + " threads:\n");
-            findMinElement(threadCount);
+            main.findMinElement(threadCount);
 
-            synchronized (completionLock) {
-                while (completedThreads < threadCount) {
+            synchronized (main.completionLock) {
+                while (main.completedThreads < threadCount) {
                     try {
-                        completionLock.wait();
+                        main.completionLock.wait();
+
+                        if (main.completedThreads == threadCount) {
+                            System.out.println("Minimum element: " + main.minElement);
+                            System.out.println("Index of minimum element: " + main.minIndex);
+                        }
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException(e);
@@ -31,7 +37,7 @@ public abstract class Main {
         }
     }
 
-    private static void findMinElement(int threadCount) {
+    private void findMinElement(int threadCount) {
         int arraySize = 10_000_000;
         array = new int[arraySize];
 
@@ -53,12 +59,12 @@ public abstract class Main {
             int startIndex = i * chunkSize;
             int endIndex = (i == threadCount - 1) ? arraySize : startIndex + chunkSize;
 
-            threads[i] = new Thread(() -> findMinInRange(startIndex, endIndex, threadCount));
+            threads[i] = new Thread(() -> findMinInRange(startIndex, endIndex));
             threads[i].start();
         }
     }
 
-    private static void findMinInRange(int startIndex, int endIndex, int threadCount) {
+    private void findMinInRange(int startIndex, int endIndex) {
         int localMin = Integer.MAX_VALUE;
         int localMinIndex = -1;
 
@@ -79,11 +85,6 @@ public abstract class Main {
         synchronized (completionLock) {
             completedThreads++;
             completionLock.notify();
-
-            if (completedThreads == threadCount) {
-                System.out.println("Minimum element: " + minElement);
-                System.out.println("Index of minimum element: " + minIndex);
-            }
         }
     }
 }
